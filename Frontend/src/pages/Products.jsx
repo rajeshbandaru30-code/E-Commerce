@@ -1,13 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import ProductCard from '../components/ProductCard';
 
 const API = 'https://ecommerce-backend-0ir6.onrender.com/api';
 
 function Products() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
-  const [filters, setFilters] = useState({ category: '', brand: '', minPrice: '', maxPrice: '', search: '', sort: 'newest' });
-  const [searchInput, setSearchInput] = useState('');
+  const [filters, setFilters] = useState({
+    category: searchParams.get('category') || '',
+    brand: searchParams.get('brand') || '',
+    minPrice: searchParams.get('minPrice') || '',
+    maxPrice: searchParams.get('maxPrice') || '',
+    search: searchParams.get('search') || '',
+    sort: searchParams.get('sort') || 'newest'
+  });
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +26,19 @@ function Products() {
     axios.get(`${API}/products/categories`).then(({ data }) => setCategories(data));
     axios.get(`${API}/products/brands`).then(({ data }) => setBrands(data));
   }, []);
+
+  // Sync state with URL search params changes (e.g. when searching from Navbar)
+  useEffect(() => {
+    const search = searchParams.get('search') || '';
+    const category = searchParams.get('category') || '';
+    const brand = searchParams.get('brand') || '';
+    const minPrice = searchParams.get('minPrice') || '';
+    const maxPrice = searchParams.get('maxPrice') || '';
+    const sort = searchParams.get('sort') || 'newest';
+
+    setFilters({ category, brand, minPrice, maxPrice, search, sort });
+    setSearchInput(search);
+  }, [searchParams]);
 
   const handleSearch = (value) => {
     setSearchInput(value);
@@ -28,12 +50,25 @@ function Products() {
 
   useEffect(() => {
     setLoading(true);
+    
+    // Sync local filters to URL parameters
+    const newParams = {};
+    Object.entries(filters).forEach(([k, v]) => { if (v) newParams[k] = v; });
+    
+    const currentParams = {};
+    searchParams.forEach((value, key) => { currentParams[key] = value; });
+    
+    if (JSON.stringify(newParams) !== JSON.stringify(currentParams)) {
+      setSearchParams(newParams);
+    }
+
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+    
     axios.get(`${API}/products?${params}`).then(({ data }) => {
       setProducts(data.products || data);
     }).finally(() => setLoading(false));
-  }, [filters]);
+  }, [filters, searchParams, setSearchParams]);
 
   return (
     <div className="flex flex-col md:flex-row max-w-[1200px] mx-auto px-5 py-10 gap-8">

@@ -13,6 +13,15 @@ function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const desktopProfileRef = useRef();
   const mobileProfileRef = useRef();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setMenuOpen(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -70,6 +79,20 @@ function Navbar() {
     <nav className="sticky top-0 z-50 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm px-5">
       <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[60px]">
         <Link to="/" className="text-2xl font-extrabold text-indigo-600 no-underline">ShopEZ</Link>
+
+        {/* Global Search Bar (Desktop) */}
+        <form onSubmit={handleSearchSubmit} className="hidden md:flex items-center relative max-w-xs lg:max-w-md w-full mx-6">
+          <input
+            type="text"
+            placeholder="Search products..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-4 pr-10 py-1.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-100 border border-slate-200 dark:border-slate-600 rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 bg-none border-none cursor-pointer text-slate-400 hover:text-indigo-600 flex items-center justify-center p-0">
+            🔍
+          </button>
+        </form>
 
         <div className="hidden md:flex items-center gap-4">
           {navLinks}
@@ -141,6 +164,19 @@ function Navbar() {
 
       {menuOpen && (
         <div className="md:hidden pb-4 flex flex-col gap-3 border-t border-slate-100 dark:border-slate-700 pt-3">
+          {/* Mobile Search Bar */}
+          <form onSubmit={handleSearchSubmit} className="flex items-center relative w-full mb-1">
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-4 pr-10 py-2 bg-slate-50 dark:bg-slate-700 dark:text-slate-100 border border-slate-200 dark:border-slate-600 rounded-full text-sm focus:outline-none"
+            />
+            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 bg-none border-none cursor-pointer text-slate-400 flex items-center justify-center p-0">
+              🔍
+            </button>
+          </form>
           {navLinks}
         </div>
       )}
