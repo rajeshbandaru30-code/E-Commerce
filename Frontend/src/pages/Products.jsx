@@ -8,67 +8,61 @@ const API = 'https://ecommerce-backend-0ir6.onrender.com/api';
 function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
-  const [filters, setFilters] = useState({
-    category: searchParams.get('category') || '',
-    brand: searchParams.get('brand') || '',
-    minPrice: searchParams.get('minPrice') || '',
-    maxPrice: searchParams.get('maxPrice') || '',
-    search: searchParams.get('search') || '',
-    sort: searchParams.get('sort') || 'newest'
-  });
-  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const debounceRef = useRef();
+
+  // Read values directly from URL Search Parameters (Single Source of Truth)
+  const category = searchParams.get('category') || '';
+  const brand = searchParams.get('brand') || '';
+  const minPrice = searchParams.get('minPrice') || '';
+  const maxPrice = searchParams.get('maxPrice') || '';
+  const search = searchParams.get('search') || '';
+  const sort = searchParams.get('sort') || 'newest';
+
+  // Search input needs local state for typing, but updates searchParams on debounce/Enter
+  const [searchInput, setSearchInput] = useState(search);
 
   useEffect(() => {
     axios.get(`${API}/products/categories`).then(({ data }) => setCategories(data));
     axios.get(`${API}/products/brands`).then(({ data }) => setBrands(data));
   }, []);
 
-  // Sync state with URL search params changes (e.g. when searching from Navbar)
+  // Sync search input local state when search parameter changes in URL (e.g. from Navbar)
   useEffect(() => {
-    const search = searchParams.get('search') || '';
-    const category = searchParams.get('category') || '';
-    const brand = searchParams.get('brand') || '';
-    const minPrice = searchParams.get('minPrice') || '';
-    const maxPrice = searchParams.get('maxPrice') || '';
-    const sort = searchParams.get('sort') || 'newest';
-
-    setFilters({ category, brand, minPrice, maxPrice, search, sort });
     setSearchInput(search);
+  }, [search]);
+
+  // Fetch products whenever URL parameters change
+  useEffect(() => {
+    setLoading(true);
+    axios.get(`${API}/products?${searchParams}`)
+      .then(({ data }) => {
+        setProducts(data.products || data);
+      })
+      .finally(() => setLoading(false));
   }, [searchParams]);
+
+  const updateSearchParam = (key, value) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) {
+        next.set(key, value);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    }, { replace: true });
+  };
 
   const handleSearch = (value) => {
     setSearchInput(value);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      setFilters((prev) => ({ ...prev, search: value }));
+      updateSearchParam('search', value);
     }, 400);
   };
-
-  useEffect(() => {
-    setLoading(true);
-    
-    // Sync local filters to URL parameters
-    const newParams = {};
-    Object.entries(filters).forEach(([k, v]) => { if (v) newParams[k] = v; });
-    
-    const currentParams = {};
-    searchParams.forEach((value, key) => { currentParams[key] = value; });
-    
-    if (JSON.stringify(newParams) !== JSON.stringify(currentParams)) {
-      setSearchParams(newParams);
-    }
-
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
-    
-    axios.get(`${API}/products?${params}`).then(({ data }) => {
-      setProducts(data.products || data);
-    }).finally(() => setLoading(false));
-  }, [filters, searchParams, setSearchParams]);
 
   return (
     <div className="flex flex-col md:flex-row max-w-[1200px] mx-auto px-5 py-10 gap-8">
@@ -77,29 +71,37 @@ function Products() {
         <div className="relative mb-3">
           <input type="text" placeholder="Search products..." value={searchInput}
             onChange={(e) => handleSearch(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { clearTimeout(debounceRef.current); setFilters((prev) => ({ ...prev, search: searchInput })); } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                clearTimeout(debounceRef.current);
+                updateSearchParam('search', searchInput);
+              }
+            }}
             className="w-full p-2.5 pr-10 bg-white dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-          <button onClick={() => { clearTimeout(debounceRef.current); setFilters((prev) => ({ ...prev, search: searchInput })); }} className="absolute right-1 top-1/2 -translate-y-1/2 bg-indigo-600 text-white text-xs px-2 py-1.5 rounded-md hover:bg-indigo-700 border-none cursor-pointer">Go</button>
+          <button onClick={() => {
+            clearTimeout(debounceRef.current);
+            updateSearchParam('search', searchInput);
+          }} className="absolute right-1 top-1/2 -translate-y-1/2 bg-indigo-600 text-white text-xs px-2 py-1.5 rounded-md hover:bg-indigo-700 border-none cursor-pointer">Go</button>
         </div>
-        <select value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+        <select value={category} onChange={(e) => updateSearchParam('category', e.target.value)}
           className="w-full p-2.5 mb-3 bg-white dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
           <option value="">All Categories</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select value={filters.brand} onChange={(e) => setFilters({ ...filters, brand: e.target.value })}
+        <select value={brand} onChange={(e) => updateSearchParam('brand', e.target.value)}
           className="w-full p-2.5 mb-3 bg-white dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
           <option value="">All Brands</option>
           {brands.map((b) => <option key={b} value={b}>{b}</option>)}
         </select>
         <div className="flex gap-2 mb-3">
-          <input type="number" placeholder="Min ₹" value={filters.minPrice}
-            onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
+          <input type="number" placeholder="Min ₹" value={minPrice}
+            onChange={(e) => updateSearchParam('minPrice', e.target.value)}
             className="w-1/2 p-2.5 bg-white dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
-          <input type="number" placeholder="Max ₹" value={filters.maxPrice}
-            onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
+          <input type="number" placeholder="Max ₹" value={maxPrice}
+            onChange={(e) => updateSearchParam('maxPrice', e.target.value)}
             className="w-1/2 p-2.5 bg-white dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-sm" />
         </div>
-        <select value={filters.sort} onChange={(e) => setFilters({ ...filters, sort: e.target.value })}
+        <select value={sort} onChange={(e) => updateSearchParam('sort', e.target.value)}
           className="w-full p-2.5 mb-3 bg-white dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
           <option value="newest">Newest</option>
           <option value="price_asc">Price: Low to High</option>
